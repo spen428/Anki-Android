@@ -1148,6 +1148,7 @@ open class Reviewer :
     override fun displayCardAnswer() {
         delayedHide(100)
         super.displayCardAnswer()
+        whiteboard?.cropAndMoveToTopLeftCorner()
     }
 
     override fun initLayout() {

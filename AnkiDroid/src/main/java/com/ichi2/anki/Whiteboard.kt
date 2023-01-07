@@ -32,6 +32,7 @@ import androidx.annotation.CheckResult
 import androidx.annotation.VisibleForTesting
 import androidx.core.content.ContextCompat
 import androidx.core.content.edit
+import androidx.core.graphics.get
 import com.ichi2.anki.dialogs.WhiteBoardWidthDialog
 import com.ichi2.compat.CompatHelper
 import com.ichi2.libanki.utils.Time
@@ -74,6 +75,8 @@ open class Whiteboard(activity: AnkiActivity, handleMultiTouch: Boolean, inverte
 
     private val executorService = Executors.newCachedThreadPool()
     private var onyxTouchHelper: TouchHelper? = null
+    private var drawingLeft = 9999f
+    private var drawingTop = 9999f
 
     var toggleStylus = false
     var isCurrentlyDrawing = false
@@ -206,6 +209,8 @@ open class Whiteboard(activity: AnkiActivity, handleMultiTouch: Boolean, inverte
         mUndo.clear()
         invalidate()
         mAnkiActivity.invalidateOptionsMenu()
+        drawingLeft = 9999f
+        drawingTop = 9999f
     }
 
     /**
@@ -281,11 +286,19 @@ open class Whiteboard(activity: AnkiActivity, handleMultiTouch: Boolean, inverte
         val action = if (pm.length > 0) DrawPath(Path(mPath), paint) else DrawPoint(mX, mY, paint)
         action.apply(mCanvas)
         mUndo.add(action)
+        updateMinXY()
         // kill the path so we don't double draw
         mPath.reset()
         if (mUndo.size() == 1) {
             mAnkiActivity.invalidateOptionsMenu()
         }
+    }
+
+    private fun updateMinXY() {
+        val bounds = RectF()
+        mPath.computeBounds(bounds, true)
+        if (bounds.left < drawingLeft) drawingLeft = bounds.left
+        if (bounds.top < drawingTop) drawingTop = bounds.top
     }
 
     private fun drawAbort() {
@@ -435,6 +448,7 @@ open class Whiteboard(activity: AnkiActivity, handleMultiTouch: Boolean, inverte
      */
     private inner class UndoList {
         private val mList: MutableList<WhiteboardAction> = ArrayList()
+
         fun add(action: WhiteboardAction) {
             mList.add(action)
         }
@@ -696,5 +710,14 @@ open class Whiteboard(activity: AnkiActivity, handleMultiTouch: Boolean, inverte
         }
 
         drawFinish()
+    }
+
+    fun cropAndMoveToTopLeftCorner() {
+        val previousBitmap = Bitmap.createBitmap(mBitmap)
+        mBitmap.eraseColor(0)
+        mCanvas.save()
+        mCanvas.translate(10 - drawingLeft, 10 - drawingTop)
+        mCanvas.drawBitmap(previousBitmap, 0f, 0f, mBitmapPaint)
+        mCanvas.restore()
     }
 }
