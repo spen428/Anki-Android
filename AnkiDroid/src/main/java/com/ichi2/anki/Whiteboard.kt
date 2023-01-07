@@ -159,6 +159,14 @@ class Whiteboard(activity: AnkiActivity, handleMultiTouch: Boolean, inverted: Bo
         }
     }
 
+    fun handleEraseEvent(event: MotionEvent): Boolean {
+        println(event)
+        if (event.action == MotionEvent.ACTION_UP && !undoEmpty()) {
+            undo()
+        }
+        return true
+    }
+
     // Parse multitouch input to scroll the card behind the whiteboard or click on elements
     private fun handleMultiTouchEvent(event: MotionEvent): Boolean {
         return if (mHandleMultiTouch && event.pointerCount == 2) {

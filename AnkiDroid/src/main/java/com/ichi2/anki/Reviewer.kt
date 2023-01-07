@@ -99,6 +99,7 @@ import java.util.function.Consumer
 open class Reviewer :
     AbstractFlashcardViewer(),
     ReviewerUi {
+    private val whiteboardIgnoresNonStylusTouches = true // TODO: Move into Advanced Settings
     private var mHasDrawerSwipeConflicts = false
     private var mShowWhiteboard = true
     private var mPrefFullscreenReview = false
@@ -1391,6 +1392,23 @@ open class Reviewer :
         })
         whiteboard!!.setOnTouchListener { v: View, event: MotionEvent? ->
             if (event == null) return@setOnTouchListener false
+
+            if (whiteboardIgnoresNonStylusTouches) {
+                val toolType = event.getToolType(0)
+                if (toolType == MotionEvent.TOOL_TYPE_STYLUS) {
+                    whiteboard!!.handleTouchEvent(event)
+                    return@setOnTouchListener true
+                }
+
+                if (toolType == MotionEvent.TOOL_TYPE_ERASER) {
+                    whiteboard!!.handleEraseEvent(event)
+                    return@setOnTouchListener true
+                }
+
+                v.performClick()
+                return@setOnTouchListener gestureDetector!!.onTouchEvent(event)
+            }
+
             // If the whiteboard is currently drawing, and triggers the system UI to show, we want to continue drawing.
             if (!whiteboard!!.isCurrentlyDrawing && (
                 !mShowWhiteboard || (
