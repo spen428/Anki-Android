@@ -54,6 +54,7 @@ import com.ichi2.anki.AnkiDroidJsAPIConstants.SET_CARD_DUE
 import com.ichi2.anki.AnkiDroidJsAPIConstants.ankiJsErrorCodeDefault
 import com.ichi2.anki.AnkiDroidJsAPIConstants.ankiJsErrorCodeSetDue
 import com.ichi2.anki.CollectionManager.withCol
+import com.ichi2.anki.UIUtils.showThemedToast
 import com.ichi2.anki.OnyxBooxWhiteboard.Companion.createInstance
 import com.ichi2.anki.Whiteboard.OnPaintColorChangeListener
 import com.ichi2.anki.cardviewer.Gesture
@@ -99,7 +100,6 @@ import java.util.function.Consumer
 open class Reviewer :
     AbstractFlashcardViewer(),
     ReviewerUi {
-    private val whiteboardIgnoresNonStylusTouches = true // TODO: Move into Advanced Settings
     private var mHasDrawerSwipeConflicts = false
     private var mShowWhiteboard = true
     private var mPrefFullscreenReview = false
@@ -1148,7 +1148,9 @@ open class Reviewer :
     override fun displayCardAnswer() {
         delayedHide(100)
         super.displayCardAnswer()
-        whiteboard?.cropAndMoveToTopLeftCorner()
+        if (AnkiDroidApp.getSharedPrefs(this).getBoolean("whiteboardCropAndMove", false)) {
+            whiteboard?.cropAndMoveToTopLeftCorner()
+        }
     }
 
     override fun initLayout() {
@@ -1378,7 +1380,13 @@ open class Reviewer :
     }
 
     private fun createWhiteboard() {
-        whiteboard = createInstance(this, true, this)
+        val prefs = AnkiDroidApp.getSharedPrefs(this)
+        val whiteboardIgnoresNonStylusTouches = prefs.getBoolean("whiteboardIgnoresNonStylusTouches", false)
+        val useOnyxPenSdk = prefs.getBoolean("useOnyxPenSdk", false)
+        whiteboard = if (useOnyxPenSdk)
+            OnyxBooxWhiteboard.createInstance(this, true, this)
+        else
+            Whiteboard.createInstance(this, true, this)
 
         // We use the pen color of the selected deck at the time the whiteboard is enabled.
         // This is how all other whiteboard settings are

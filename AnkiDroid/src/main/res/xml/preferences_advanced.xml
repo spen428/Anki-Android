@@ -161,5 +161,21 @@
                 android:dependency="@string/pref_rust_backend_key"
                 android:title="@string/enable_v3_sched_title"
                 android:defaultValue="false"/>
+            <SwitchPreference
+                android:key="whiteboardCropAndMove"
+                android:title="Move whiteboard content for answer"
+                android:summary="Move the content of the reviewer whiteboard to the top left corner when revealing the answer card"
+                android:defaultValue="false"/>
+            <SwitchPreference
+                android:key="useOnyxPenSdk"
+                android:title="Use Onyx Boox Pen SDK"
+                android:summary="Use Onyx SDK for faster pen input rendering"
+                android:defaultValue="false"/>
+            <SwitchPreference
+                android:key="whiteboardIgnoresNonStylusTouches"
+                android:dependency="useOnyxPenSdk"
+                android:title="Stylus-only whiteboard"
+                android:summary="Reviewer whiteboard only draws or erases on stylus input events"
+                android:defaultValue="false"/>
         </PreferenceCategory>
 </PreferenceScreen>
