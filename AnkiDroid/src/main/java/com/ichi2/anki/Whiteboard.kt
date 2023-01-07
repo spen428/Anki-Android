@@ -32,7 +32,6 @@ import androidx.annotation.CheckResult
 import androidx.annotation.VisibleForTesting
 import androidx.core.content.ContextCompat
 import androidx.core.content.edit
-import androidx.core.graphics.get
 import com.ichi2.anki.dialogs.WhiteBoardWidthDialog
 import com.ichi2.compat.CompatHelper
 import com.ichi2.libanki.utils.Time
@@ -41,13 +40,8 @@ import com.ichi2.themes.Themes.currentTheme
 import com.ichi2.utils.DisplayUtils.getDisplayDimensions
 import com.ichi2.utils.KotlinCleanup
 import com.mrudultora.colorpicker.ColorPickerPopUp
-import com.onyx.android.sdk.data.note.TouchPoint
-import com.onyx.android.sdk.pen.RawInputCallback
-import com.onyx.android.sdk.pen.TouchHelper
-import com.onyx.android.sdk.pen.data.TouchPointList
 import timber.log.Timber
 import java.io.FileNotFoundException
-import java.util.concurrent.Executors
 import kotlin.math.abs
 import kotlin.math.max
 
@@ -55,12 +49,11 @@ import kotlin.math.max
  * Whiteboard allowing the user to draw the card's answer on the touchscreen.
  */
 @SuppressLint("ViewConstructor")
-open class Whiteboard(activity: AnkiActivity, handleMultiTouch: Boolean, inverted: Boolean) :
-    View(activity, null) {
-    private val mPaint: Paint
+open class Whiteboard(activity: AnkiActivity, handleMultiTouch: Boolean, inverted: Boolean) : View(activity, null) {
+    protected val mPaint: Paint
     private val mUndo = UndoList()
     private lateinit var mBitmap: Bitmap
-    private lateinit var mCanvas: Canvas
+    protected lateinit var mCanvas: Canvas
     private val mPath: Path
     private val mBitmapPaint: Paint
     private val mAnkiActivity: AnkiActivity = activity
@@ -72,9 +65,6 @@ open class Whiteboard(activity: AnkiActivity, handleMultiTouch: Boolean, inverte
     private var mSecondFingerY = 0f
     private var mSecondFingerPointerId = 0
     private var mSecondFingerWithinTapTolerance = false
-
-    private val executorService = Executors.newCachedThreadPool()
-    private var onyxTouchHelper: TouchHelper? = null
     private var drawingLeft = 9999f
     private var drawingTop = 9999f
 
@@ -118,12 +108,7 @@ open class Whiteboard(activity: AnkiActivity, handleMultiTouch: Boolean, inverte
      * @return True if the event was handled, false otherwise or when drawing was aborted due to
      * detection of a multitouch event.
      */
-    private fun handleDrawEvent(event: MotionEvent): Boolean {
-        if (onyxTouchHelper != null) {
-            onyxTouchHelper!!.setRawDrawingEnabled(event.action != MotionEvent.ACTION_UP)
-            return true
-        }
-
+    protected open fun handleDrawEvent(event: MotionEvent): Boolean {
         val x = event.x
         val y = event.y
         if (event.getToolType(event.actionIndex) != MotionEvent.TOOL_TYPE_STYLUS && toggleStylus == true) {
@@ -177,7 +162,6 @@ open class Whiteboard(activity: AnkiActivity, handleMultiTouch: Boolean, inverte
     }
 
     fun handleEraseEvent(event: MotionEvent): Boolean {
-        println(event)
         if (event.action == MotionEvent.ACTION_UP && !undoEmpty()) {
             undo()
         }
@@ -260,7 +244,7 @@ open class Whiteboard(activity: AnkiActivity, handleMultiTouch: Boolean, inverte
         mCanvas = Canvas(mBitmap)
     }
 
-    private fun drawStart(x: Float, y: Float) {
+    protected fun drawStart(x: Float, y: Float) {
         isCurrentlyDrawing = true
         mPath.reset()
         mPath.moveTo(x, y)
@@ -268,7 +252,7 @@ open class Whiteboard(activity: AnkiActivity, handleMultiTouch: Boolean, inverte
         mY = y
     }
 
-    private fun drawAlong(x: Float, y: Float) {
+    protected fun drawAlong(x: Float, y: Float) {
         val dx = abs(x - mX)
         val dy = abs(y - mY)
         if (dx >= TOUCH_TOLERANCE || dy >= TOUCH_TOLERANCE) {
@@ -278,7 +262,7 @@ open class Whiteboard(activity: AnkiActivity, handleMultiTouch: Boolean, inverte
         }
     }
 
-    private fun drawFinish() {
+    protected fun drawFinish() {
         isCurrentlyDrawing = false
         val pm = PathMeasure(mPath, false)
         mPath.lineTo(mX, mY)
@@ -336,10 +320,7 @@ open class Whiteboard(activity: AnkiActivity, handleMultiTouch: Boolean, inverte
         if (mSecondFingerPointerId == event.getPointerId(event.actionIndex)) {
             updateSecondFinger(event)
             if (mSecondFingerWithinTapTolerance && mWhiteboardMultiTouchMethods != null) {
-                mWhiteboardMultiTouchMethods!!.tapOnCurrentCard(
-                    mSecondFingerX.toInt(),
-                    mSecondFingerY.toInt()
-                )
+                mWhiteboardMultiTouchMethods!!.tapOnCurrentCard(mSecondFingerX.toInt(), mSecondFingerY.toInt())
                 return true
             }
         }
@@ -410,20 +391,15 @@ open class Whiteboard(activity: AnkiActivity, handleMultiTouch: Boolean, inverte
 
     private fun handleWidthChangeDialog() {
         val whiteBoardWidthDialog = WhiteBoardWidthDialog(mAnkiActivity, currentStrokeWidth)
-        whiteBoardWidthDialog.onStrokeWidthChanged { wbStrokeWidth: Int ->
-            saveStrokeWidth(
-                wbStrokeWidth
-            )
-        }
+        whiteBoardWidthDialog.onStrokeWidthChanged { wbStrokeWidth: Int -> saveStrokeWidth(wbStrokeWidth) }
         whiteBoardWidthDialog.showStrokeWidthDialog()
     }
 
-    private fun saveStrokeWidth(wbStrokeWidth: Int) {
+    protected open fun saveStrokeWidth(wbStrokeWidth: Int) {
         mPaint.strokeWidth = wbStrokeWidth.toFloat()
         AnkiDroidApp.getSharedPrefs(mAnkiActivity).edit {
             putInt("whiteBoardStrokeWidth", wbStrokeWidth)
         }
-        onyxTouchHelper?.setStrokeWidth(mPaint.strokeWidth)
     }
 
     @get:VisibleForTesting
@@ -477,13 +453,7 @@ open class Whiteboard(activity: AnkiActivity, handleMultiTouch: Boolean, inverte
             var didErase = false
             val clip = Region(0, 0, displayDimensions.x, displayDimensions.y)
             val eraserPath = Path()
-            eraserPath.addRect(
-                (x - 10).toFloat(),
-                (y - 10).toFloat(),
-                (x + 10).toFloat(),
-                (y + 10).toFloat(),
-                Path.Direction.CW
-            )
+            eraserPath.addRect((x - 10).toFloat(), (y - 10).toFloat(), (x + 10).toFloat(), (y + 10).toFloat(), Path.Direction.CW)
             val eraserRegion = Region()
             eraserRegion.setPath(eraserPath, clip)
 
@@ -503,24 +473,13 @@ open class Whiteboard(activity: AnkiActivity, handleMultiTouch: Boolean, inverte
                         // thus giving us an empty region, which would make them undeletable.
                         // For this edge case, we create a Region ourselves.
                         path.computeBounds(bounds, true)
-                        lineRegion = Region(
-                            Rect(
-                                bounds.left.toInt(),
-                                bounds.top.toInt(),
-                                bounds.right.toInt() + 1,
-                                bounds.bottom.toInt() + 1
-                            )
-                        )
+                        lineRegion = Region(Rect(bounds.left.toInt(), bounds.top.toInt(), bounds.right.toInt() + 1, bounds.bottom.toInt() + 1))
                     }
                 } else { // → point
                     val p = action.point
                     lineRegion = Region(p!!.x, p.y, p.x + 1, p.y + 1)
                 }
-                if (!lineRegion.quickReject(eraserRegion) && lineRegion.op(
-                        eraserRegion,
-                        Region.Op.INTERSECT
-                    )
-                ) {
+                if (!lineRegion.quickReject(eraserRegion) && lineRegion.op(eraserRegion, Region.Op.INTERSECT)) {
                     iterator.remove()
                     didErase = true
                 }
@@ -539,8 +498,7 @@ open class Whiteboard(activity: AnkiActivity, handleMultiTouch: Boolean, inverte
         val point: Point?
     }
 
-    private class DrawPoint(private val x: Float, private val y: Float, private val paint: Paint) :
-        WhiteboardAction {
+    private class DrawPoint(private val x: Float, private val y: Float, private val paint: Paint) : WhiteboardAction {
         override fun apply(canvas: Canvas) {
             canvas.drawPoint(x, y, paint)
         }
@@ -572,14 +530,7 @@ open class Whiteboard(activity: AnkiActivity, handleMultiTouch: Boolean, inverte
         }
         draw(canvas)
         val baseFileName = "Whiteboard" + TimeUtils.getTimestamp(time!!)
-        return CompatHelper.compat.saveImage(
-            context,
-            bitmap,
-            baseFileName,
-            "jpg",
-            Bitmap.CompressFormat.JPEG,
-            95
-        )
+        return CompatHelper.compat.saveImage(context, bitmap, baseFileName, "jpg", Bitmap.CompressFormat.JPEG, 95)
     }
 
     @KotlinCleanup("fun interface & use SAM on callers")
@@ -590,11 +541,7 @@ open class Whiteboard(activity: AnkiActivity, handleMultiTouch: Boolean, inverte
     companion object {
         private const val TOUCH_TOLERANCE = 4f
         private var mWhiteboardMultiTouchMethods: WhiteboardMultiTouchMethods? = null
-        fun createInstance(
-            context: AnkiActivity,
-            handleMultiTouch: Boolean,
-            whiteboardMultiTouchMethods: WhiteboardMultiTouchMethods?
-        ): Whiteboard {
+        fun createInstance(context: AnkiActivity, handleMultiTouch: Boolean, whiteboardMultiTouchMethods: WhiteboardMultiTouchMethods?): Whiteboard {
             val whiteboard = Whiteboard(context, handleMultiTouch, currentTheme.isNightMode)
             mWhiteboardMultiTouchMethods = whiteboardMultiTouchMethods
             val lp2 = FrameLayout.LayoutParams(
@@ -639,14 +586,10 @@ open class Whiteboard(activity: AnkiActivity, handleMultiTouch: Boolean, inverte
 
         // selecting pen color to draw
         mColorPalette = activity.findViewById(R.id.whiteboard_editor)
-        activity.findViewById<View>(R.id.pen_color_red)
-            .setOnClickListener { view: View -> onClick(view) }
-        activity.findViewById<View>(R.id.pen_color_green)
-            .setOnClickListener { view: View -> onClick(view) }
-        activity.findViewById<View>(R.id.pen_color_blue)
-            .setOnClickListener { view: View -> onClick(view) }
-        activity.findViewById<View>(R.id.pen_color_yellow)
-            .setOnClickListener { view: View -> onClick(view) }
+        activity.findViewById<View>(R.id.pen_color_red).setOnClickListener { view: View -> onClick(view) }
+        activity.findViewById<View>(R.id.pen_color_green).setOnClickListener { view: View -> onClick(view) }
+        activity.findViewById<View>(R.id.pen_color_blue).setOnClickListener { view: View -> onClick(view) }
+        activity.findViewById<View>(R.id.pen_color_yellow).setOnClickListener { view: View -> onClick(view) }
         activity.findViewById<View>(R.id.pen_color_custom).apply {
             setOnClickListener { view: View -> onClick(view) }
             (background as? VectorDrawable)?.setTint(foregroundColor)
@@ -655,61 +598,6 @@ open class Whiteboard(activity: AnkiActivity, handleMultiTouch: Boolean, inverte
             setOnClickListener { view: View -> onClick(view) }
             (background as? VectorDrawable)?.setTint(foregroundColor)
         }
-
-        startOnyxPenHandler()
-    }
-
-    private fun startOnyxPenHandler() {
-        val callback = object : RawInputCallback() {
-            override fun onBeginRawDrawing(p0: Boolean, p1: TouchPoint?) {
-            }
-
-            override fun onEndRawDrawing(p0: Boolean, p1: TouchPoint?) {
-            }
-
-            override fun onRawDrawingTouchPointMoveReceived(p0: TouchPoint?) {
-            }
-
-            override fun onRawDrawingTouchPointListReceived(touchPointList: TouchPointList?) {
-                if (touchPointList == null) return
-                executorService.submit { this@Whiteboard.drawTouchPoints(touchPointList) }
-            }
-
-            override fun onBeginRawErasing(p0: Boolean, p1: TouchPoint?) {
-            }
-
-            override fun onEndRawErasing(p0: Boolean, p1: TouchPoint?) {
-            }
-
-            override fun onRawErasingTouchPointMoveReceived(p0: TouchPoint?) {
-            }
-
-            override fun onRawErasingTouchPointListReceived(p0: TouchPointList?) {
-                println("onRawErasingTouchPointListReceived")
-            }
-        }
-
-        val menuBarBounds =
-            Rect(mCanvas.clipBounds.left, mCanvas.clipBounds.top, mCanvas.clipBounds.right, 50)
-        onyxTouchHelper = TouchHelper.create(this, callback)
-            .setLimitRect(mCanvas.clipBounds, listOf(menuBarBounds))
-            .setStrokeWidth(mPaint.strokeWidth)
-            .setStrokeStyle(TouchHelper.STROKE_STYLE_PENCIL)
-            .openRawDrawing()
-    }
-
-    private fun drawTouchPoints(touchPointList: TouchPointList) {
-        val iterator = touchPointList.iterator()
-
-        val firstTouchPoint = iterator.next()
-        drawStart(firstTouchPoint.x, firstTouchPoint.y)
-
-        while (iterator.hasNext()) {
-            val touchPoint = iterator.next()
-            drawAlong(touchPoint.x, touchPoint.y)
-        }
-
-        drawFinish()
     }
 
     fun cropAndMoveToTopLeftCorner() {

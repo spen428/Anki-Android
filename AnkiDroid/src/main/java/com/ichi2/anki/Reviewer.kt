@@ -54,7 +54,7 @@ import com.ichi2.anki.AnkiDroidJsAPIConstants.SET_CARD_DUE
 import com.ichi2.anki.AnkiDroidJsAPIConstants.ankiJsErrorCodeDefault
 import com.ichi2.anki.AnkiDroidJsAPIConstants.ankiJsErrorCodeSetDue
 import com.ichi2.anki.CollectionManager.withCol
-import com.ichi2.anki.Whiteboard.Companion.createInstance
+import com.ichi2.anki.OnyxBooxWhiteboard.Companion.createInstance
 import com.ichi2.anki.Whiteboard.OnPaintColorChangeListener
 import com.ichi2.anki.cardviewer.Gesture
 import com.ichi2.anki.cardviewer.ViewerCommand
